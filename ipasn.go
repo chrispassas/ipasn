@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strconv"
 )
@@ -98,7 +97,7 @@ func BulkSearch(ctx context.Context, values []string) (results []Result, err err
 func parseResponse(response []byte) (results []Result, err error) {
 	var pipe = []byte("|")
 	for _, line := range bytes.Split(response, []byte("\n")) {
-		log.Printf("line:%s", string(line))
+		// log.Printf("line:%s", string(line))
 
 		pieces := bytes.Split(line, pipe)
 		var result Result
