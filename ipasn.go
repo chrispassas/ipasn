@@ -24,35 +24,11 @@ type Result struct {
 
 var (
 	// ErrMaxBatchSize max batch size 1000 exceeded
-	ErrMaxBatchSize = fmt.Errorf("Exceeded max per-request of 1,000")
+	ErrMaxBatchSize     = fmt.Errorf("Exceeded max per-request of 1,000")
+	ErrASNLookupFailed  = fmt.Errorf("ASN Lookup Failed")
+	ErrIPNotValid       = fmt.Errorf("not a valid ip")
+	ErrUnexpectedFormat = fmt.Errorf("Unexpected response format")
 )
-
-// func Search(ctx context.Context, ipStr string) (result Result, err error) {
-
-// 	if ip := net.ParseIP(ip); ip == nil {
-// 		err = fmt.Errorf("not a valid ip")
-// 		return result, err
-// 	}
-
-// 	return result, err
-// }
-
-// func convertIPToDNS(ip string) (name string) {
-
-// 	return name
-// }
-
-// func lookupTXT(ctx context.Context, name string) ([]string, error) {
-// 	r := &net.Resolver{
-// 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-// 			d := net.Dialer{
-// 				Timeout: time.Second * 2,
-// 			}
-// 			return d.DialContext(ctx, network, "localhost:53")
-// 		},
-// 	}
-// 	return r.LookupTXT(ctx, name)
-// }
 
 // BulkSearch submit IP, CIDR, ASN bulk search
 func BulkSearch(ctx context.Context, values []string) (results []Result, err error) {
@@ -87,8 +63,6 @@ func BulkSearch(ctx context.Context, values []string) (results []Result, err err
 		return results, err
 	}
 
-	// log.Printf("%s", string(response))
-
 	results, err = parseResponse(response)
 
 	return results, err
@@ -97,7 +71,6 @@ func BulkSearch(ctx context.Context, values []string) (results []Result, err err
 func parseResponse(response []byte) (results []Result, err error) {
 	var pipe = []byte("|")
 	for _, line := range bytes.Split(response, []byte("\n")) {
-		// log.Printf("line:%s", string(line))
 
 		pieces := bytes.Split(line, pipe)
 		var result Result
