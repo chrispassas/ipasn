@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 )
 
 // AS      | CC | Registry | Allocated  | AS Name
@@ -24,10 +25,16 @@ type Result struct {
 
 var (
 	// ErrMaxBatchSize max batch size 1000 exceeded
-	ErrMaxBatchSize     = fmt.Errorf("Exceeded max per-request of 1,000")
-	ErrASNLookupFailed  = fmt.Errorf("ASN Lookup Failed")
-	ErrIPNotValid       = fmt.Errorf("not a valid ip")
+	ErrMaxBatchSize = fmt.Errorf("Exceeded max per-request of 1,000")
+	// ErrASNLookupFailed the ASN lookup (whois or DNS) did not return a usable result
+	ErrASNLookupFailed = fmt.Errorf("ASN Lookup Failed")
+	// ErrIPNotValid the supplied string could not be parsed as an IP address
+	ErrIPNotValid = fmt.Errorf("not a valid ip")
+	// ErrUnexpectedFormat the whois/DNS response did not match the expected pipe-delimited format
 	ErrUnexpectedFormat = fmt.Errorf("Unexpected response format")
+	// ErrInvalidValue a value passed to BulkSearch contains characters (e.g. a newline)
+	// that would corrupt the whois bulk request
+	ErrInvalidValue = fmt.Errorf("invalid value: must not contain whitespace or newlines")
 )
 
 // BulkSearch submit IP, CIDR, ASN bulk search
@@ -35,6 +42,10 @@ func BulkSearch(ctx context.Context, values []string) (results []Result, err err
 
 	if len(values) > 1000 {
 		err = ErrMaxBatchSize
+		return results, err
+	}
+
+	if err = validateBulkValues(values); err != nil {
 		return results, err
 	}
 
@@ -93,8 +104,7 @@ func parseResponse(response []byte) (results []Result, err error) {
 				return results, err
 			}
 		default:
-			// continue
-			err = fmt.Errorf("Unexpected response:%s", string(line))
+			err = fmt.Errorf("%w: %s", ErrUnexpectedFormat, string(line))
 			return results, err
 		}
 
@@ -160,6 +170,20 @@ func ipResult(pieces [][]byte) (result Result, err error) {
 	}
 
 	return result, err
+}
+
+// validateBulkValues rejects any value that contains a carriage return or
+// newline. The whois bulk protocol is line-delimited, so an embedded newline
+// would let a single value inject extra command lines (e.g. "end", "begin")
+// into the request stream sent to whois.cymru.com.
+func validateBulkValues(values []string) (err error) {
+	for _, v := range values {
+		if strings.ContainsAny(v, "\r\n") {
+			err = fmt.Errorf("%w: %q", ErrInvalidValue, v)
+			return err
+		}
+	}
+	return err
 }
 
 func createMessage(ips []string) (message []byte) {
